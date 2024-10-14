@@ -70,7 +70,7 @@ def w_choice_general(lst):
 
 # ---------------------------------------------------------------------------------------------------	 
 def DoGridOut_cdpop(ithmcrundir,gen,loci,alleles,nogrids,subpopnew,xgridnew,\
-ygridnew,idnew,sexnew,agenew,genesnew,logfHndl,infection,AllDispDistCD,hindexnew,geneswap,unicor_out):
+ygridnew,idnew,sexnew,agenew,genesnew,infection,AllDispDistCD,hindexnew,geneswap,unicor_out):
 	'''
 	DoGridOut_cdpop()
 	Output grid.csv in cdpopformat	
@@ -122,7 +122,7 @@ ygridnew,idnew,sexnew,agenew,genesnew,logfHndl,infection,AllDispDistCD,hindexnew
 												
 	# Logging message
 	stringout = 'The file grid'+str(gen+1)+'.csv has been created'
-	logMsg(logfHndl,stringout)		
+	# logMsg(logfHndl,stringout)
 	
 	# Close file
 	outputfile.close()
@@ -132,7 +132,7 @@ ygridnew,idnew,sexnew,agenew,genesnew,logfHndl,infection,AllDispDistCD,hindexnew
 	# End::DoGridOut_cdpop()
 	
 # ---------------------------------------------------------------------------------------------------	 
-def DoGridOut_general(loci,alleles,ithmcrundir,logfHndl):
+def DoGridOut_general(loci,alleles,ithmcrundir):
 	'''
 	DoGridOut_general()
 	Output grid.csv in general genotype format	
@@ -295,7 +295,7 @@ def DoGridOut_general(loci,alleles,ithmcrundir,logfHndl):
 											
 		# Logging message
 		stringout = 'The file grid'+outputfilename[0]+'/general'+outputfilename[1]+'.csv has been created'
-		logMsg(logfHndl,stringout)		
+		# logMsg(logfHndl,stringout)
 		
 		# Close file
 		outputfile.close()
@@ -304,7 +304,7 @@ def DoGridOut_general(loci,alleles,ithmcrundir,logfHndl):
 	# End::DoGridOut_general()
 
 # ---------------------------------------------------------------------------------------------------	 
-def DoGridOut_genalex(loci,alleles,ithmcrundir,logfHndl,subgridtotal):
+def DoGridOut_genalex(loci,alleles,ithmcrundir,subgridtotal):
 	'''
 	DoGridOut_genalex()
 	Output grid.csv in genalex genotype format	
@@ -458,7 +458,7 @@ def DoGridOut_genalex(loci,alleles,ithmcrundir,logfHndl,subgridtotal):
 											
 		# Logging message
 		stringout = 'The file grid'+outputfilename[0]+'/genalex'+outputfilename[1]+'.csv has been created'
-		logMsg(logfHndl,stringout)		
+		# logMsg(logfHndl,stringout)
 		
 		# Close file
 		outputfile.close()
@@ -467,7 +467,7 @@ def DoGridOut_genalex(loci,alleles,ithmcrundir,logfHndl,subgridtotal):
 	# End::DoGridOut_genalex()
 
 # ---------------------------------------------------------------------------------------------------	 
-def DoGridOut_structure(loci,alleles,ithmcrundir,logfHndl):
+def DoGridOut_structure(loci,alleles,ithmcrundir):
 	'''
 	DoGridOut_structure()
 	Output grid.csv in structure genotype format	
@@ -609,7 +609,7 @@ def DoGridOut_structure(loci,alleles,ithmcrundir,logfHndl):
 															
 		# Logging message
 		stringout = 'The file grid'+outputfilename[0]+'/structure'+outputfilename[1]+'.stru has been created'
-		logMsg(logfHndl,stringout)		
+		# logMsg(logfHndl,stringout)
 		
 		# Close file
 		outputfile.close()
@@ -618,7 +618,7 @@ def DoGridOut_structure(loci,alleles,ithmcrundir,logfHndl):
 	# End::DoGridOut_structure()
 
 # ---------------------------------------------------------------------------------------------------	 
-def DoGridOut_genepop(loci,alleles,ithmcrundir,logfHndl,subgridtotal,subpop):
+def DoGridOut_genepop(loci,alleles,ithmcrundir,subgridtotal,subpop):
 	'''
 	DoGridOut_genalex()
 	Output grid.csv in genalex genotype format	
@@ -777,7 +777,7 @@ def DoGridOut_genepop(loci,alleles,ithmcrundir,logfHndl,subgridtotal,subpop):
 															
 		# Logging message
 		stringout = 'The file grid'+outputfilename[0]+'/genepop'+outputfilename[1]+'.csv has been created'
-		logMsg(logfHndl,stringout)		
+		# logMsg(logfHndl,stringout)
 		
 		# Close file
 		outputfile.close()
@@ -787,7 +787,7 @@ def DoGridOut_genepop(loci,alleles,ithmcrundir,logfHndl,subgridtotal,subpop):
 # ---------------------------------------------------------------------------------------------------	 
 def DoOutput(nogrids,FID,OffDisperseIN,xgridcopy,ygridcopy,gen,\
 id,sex,age,xgrid,ygrid,genes,nthfile,ithmcrundir,loci,alleles,subpop,\
-logfHndl,gridformat,infection,Infected,cdinfect,opengrids,OffDispDistCD,geneswap,hindex,unicor_out):
+gridformat,infection,Infected,cdinfect,opengrids,OffDispDistCD,geneswap,hindex,unicor_out):
 	'''
 	DoOutput()
 	Generate .txt file of old+new+Immigration generations
@@ -903,7 +903,7 @@ logfHndl,gridformat,infection,Infected,cdinfect,opengrids,OffDispDistCD,geneswap
 			# Call DoGridOut_cdpop()
 			DoGridOut_cdpop(ithmcrundir,gen,loci,alleles,nogrids,\
 			subpopnew,xgridnew,ygridnew,idnew,sexnew,agenew,genesnew,\
-			logfHndl,infectionnew,AllDispDistCD,hindexnew,geneswap,unicor_out)
+			infectionnew,AllDispDistCD,hindexnew,geneswap,unicor_out)
 	
 	# Sum infectednew to Infected
 	temp = []
@@ -927,7 +927,7 @@ loci,alleles,looptime,Population,ToTFemales,ToTMales,\
 BreedFemales,BreedMales,Migrants,Births,\
 MDeaths,FDeaths,Alleles,He,Ho,AllelesMutated,\
 MateDistED,FDispDistED,MDispDistED,MateDistCD,FDispDistCD,\
-MDispDistCD,nthfile,logfHndl,p1,p2,q1,q2,Infected,subpop,\
+MDispDistCD,nthfile,p1,p2,q1,q2,Infected,subpop,\
 MateDistEDstd,FDispDistEDstd,MDispDistEDstd,MateDistCDstd,\
 FDispDistCDstd,MDispDistCDstd,subpopmigration,FAvgMate,MAvgMate,\
 FSDMate,MSDMate,DisperseDeaths,Open,CouldNotDisperse,\
@@ -944,19 +944,19 @@ subgridtotal,MOffDeaths,FOffDeaths,Population_age,Females_age,Males_age,BreedFem
 	# ------------------------
 	# General format
 	if gridformat == 'general':		
-		DoGridOut_general(loci,alleles,ithmcrundir,logfHndl)
+		DoGridOut_general(loci,alleles,ithmcrundir)
 		
 	# GENALEX format
 	elif gridformat == 'genalex':
-		DoGridOut_genalex(loci,alleles,ithmcrundir,logfHndl,subgridtotal)
+		DoGridOut_genalex(loci,alleles,ithmcrundir,subgridtotal)
 		
 	# STRUCTURE format
 	elif gridformat == 'structure':
-		DoGridOut_structure(loci,alleles,ithmcrundir,logfHndl)
+		DoGridOut_structure(loci,alleles,ithmcrundir)
 	
 	# GENEPOP format
 	elif gridformat == 'genepop':
-		DoGridOut_genepop(loci,alleles,ithmcrundir,logfHndl,subgridtotal,subpop)
+		DoGridOut_genepop(loci,alleles,ithmcrundir,subgridtotal,subpop)
 			
 	# -------------------------------------------------
 	# output.csv
@@ -1124,7 +1124,7 @@ subgridtotal,MOffDeaths,FOffDeaths,Population_age,Females_age,Males_age,BreedFem
 				
 	# Logging message
 	stringout = 'The file outputfile.csv has been created'
-	logMsg(logfHndl,stringout)	
+	# logMsg(logfHndl,stringout)
 	
 	# Close file
 	outputfile.close()

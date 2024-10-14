@@ -809,7 +809,7 @@ FDispDistCDstd,MDispDistCDstd,Fthreshold,Mthreshold,FScaleMax,FScaleMin,MScaleMa
 def DoDisperse(offspringno,freegrid,offspring,Fdispmoveno,Mdispmoveno,\
 Fxycdmatrix,Mxycdmatrix,gen,Migrants,Open,loci,alleles,\
 xgridcopy,ygridcopy,FDispDistED,MDispDistED,FDispDistCD,MDispDistCD,
-logfHndl,cdevolveans,fitvals,FDispDistEDstd,MDispDistEDstd,\
+cdevolveans,fitvals,FDispDistEDstd,MDispDistEDstd,\
 FDispDistCDstd,MDispDistCDstd,subpop,subpopmigration,DisperseDeaths,CouldNotDisperse,\
 gridmort,philopatry,females,subpopemigration,females_nomate,males,males_nomate,\
 startSelection,Fthreshold,Mthreshold,FScaleMax,FScaleMin,MScaleMax,MScaleMin,FA,FB,FC,MA,MB,MC,betas,xvars_betas,maxfit,minfit):

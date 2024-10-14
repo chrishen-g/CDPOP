@@ -1389,7 +1389,7 @@ id,sex,age,agelst,genes,intgenesans,infection,allelst,subpopmigration,subpopemig
 # ---------------------------------------------------------------------------------------------------	 
 def DoPreProcess(outdir,ibatch,ithmcrun,\
 xyfilename,agefilename,equalsexratio,\
-loci,intgenesans,allefreqfilename,alleles,gen,logfHndl,\
+loci,intgenesans,allefreqfilename,alleles,gen,\
 cdevolveans,cdinfect,Infected,
 subpopmigration,subpopemigration,datadir,geneswap,epigeneans,unicor_out):
 	'''
