@@ -22,8 +22,9 @@ except ImportError:
 # Python specific functions
 import os, random, copy, pdb, sys, math,itertools
 from collections import Counter
+from multiprocessing import cpu_count
 
-# ----------------------------------------------------------
+# --------------------------------------------------------
 # Global symbols, if any :))
 #-----------------------------------------------------------
 # when set True, routes session log traffic to BOTH the
@@ -31,6 +32,290 @@ from collections import Counter
 # sent to log file alone.
 msgVerbose = False
 
+
+# Function to process each offspring
+def process_offspring(args):
+    (i, gen, genes, offspring, loci, muterate, mtdna, mutationans, epigeneans, cdevolveans,
+     noalleles, hindex, epiloci_index, epireset, Track_EpigeneReset1, Track_EpigeneReset2,
+     countTwins) = args
+
+    isTwin = False  # For checking for twins
+    twingenes = []  # Initialize twin genes
+
+    # If twins genes were copied already from previous offspring, skip this section
+    if len(twingenes) == 0:
+        # Temp storage for i's mother's and father's genes
+        mothergenes = genes[int(offspring[i][0])]
+        fathergenes = genes[int(offspring[i][1])]
+        fathergenes = np.asarray(fathergenes, dtype=int)
+        mothergenes = np.asarray(mothergenes, dtype=int)
+        # Temp genes storage for offspring
+        tempgenes = np.zeros(len(fathergenes), dtype=int)
+        # Allele indices
+        alleles = np.asarray(list(range(len(mothergenes))))
+
+        # Loop through loci
+        for iloci in range(loci):
+            # Allele indices to sample from - index into tempgenes
+            possiblealleles = alleles[sum(noalleles[0:iloci]):sum(noalleles[0:iloci + 1])]
+            # If this is not the epiregion, assume diploid, randomly grab from parents alleles
+            if len(np.where(np.asarray(epiloci_index) == iloci * 2)[0]) == 0:
+                # Father and mother locations
+                F2 = np.where(fathergenes[possiblealleles] == 2)[0]  # location of 2s
+                F1 = np.where(fathergenes[possiblealleles] == 1)[0]
+                M2 = np.where(mothergenes[possiblealleles] == 2)[0]
+                M1 = np.where(mothergenes[possiblealleles] == 1)[0]
+                Falls = np.concatenate((F2, F2, F1), axis=0)  # 2 copies of 2s
+                Malls = np.concatenate((M2, M2, M1), axis=0)  # 2 copies of 2s
+                # Sample allele from each parent
+                FsampleAlleles = np.random.choice(Falls, 1).tolist()
+                MsampleAlleles = np.random.choice(Malls, 1).tolist()
+                # Fill in alleles corresponding to sampled spots
+                tempgenes[possiblealleles[FsampleAlleles[0]]] += 1
+                tempgenes[possiblealleles[MsampleAlleles[0]]] += 1
+
+            # Epiregion, not necessarily diploid, different checks, and also check for resets
+            else:
+                # Get reset numbers for each allele
+                Reset1 = float(
+                    epireset[offspring[i][0]][np.where(np.asarray(epiloci_index) == iloci * 2)[0][0]].split(';')[
+                        0])  # first allele reset
+                Reset2 = float(
+                    epireset[offspring[i][0]][np.where(np.asarray(epiloci_index) == iloci * 2)[0][0]].split(';')[
+                        1])  # second allele reset
+
+                # Randomly grab one of the alleles from each parent
+                Fsample_allindex = np.random.choice(possiblealleles, 1).tolist()  # father's index location
+                Msample_allindex = np.random.choice(possiblealleles, 1).tolist()  # mother's index location
+
+                # Offspring inherits these epialleles or not from parents
+                Fsample_allval = fathergenes[Fsample_allindex[0]]  # father's allele value
+                Msample_allval = mothergenes[Msample_allindex[0]]  # mother's allele value
+                # Check homo cases, offspring only gets one copy from each parent
+                if Fsample_allval == 2:
+                    Fsample_allval = 1
+                if Msample_allval == 2:
+                    Msample_allval = 1
+                # Fill in offspring genes, indexing to allele location
+                tempgenes[Fsample_allindex[0]] += Fsample_allval
+                tempgenes[Msample_allindex[0]] += Msample_allval
+
+                # Check for resets
+                # Independent alleles
+                if epigeneans.split('_')[4] == 'Ind':
+                    # First allele
+                    if tempgenes[possiblealleles[0]] == 2:  # two copies, two reset checks
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset1:  # This allele resets
+                            tempgenes[possiblealleles[0]] -= 1
+                            Track_EpigeneReset1[gen].append(1)
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset1:  # This allele resets
+                            tempgenes[possiblealleles[0]] -= 1
+                            Track_EpigeneReset1[gen].append(1)
+                    elif tempgenes[possiblealleles[0]] == 1:  # one copy, one reset check
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset1:  # This allele resets
+                            tempgenes[possiblealleles[0]] -= 1
+                            Track_EpigeneReset1[gen].append(1)
+                    else:  # 0 copies, pass
+                        pass
+                    # Second allele
+                    if tempgenes[possiblealleles[1]] == 2:  # two copies, two reset checks
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset2:  # This allele resets
+                            tempgenes[possiblealleles[1]] -= 1
+                            Track_EpigeneReset2[gen].append(1)
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset2:  # This allele resets
+                            tempgenes[possiblealleles[1]] -= 1
+                            Track_EpigeneReset2[gen].append(1)
+                    elif tempgenes[possiblealleles[1]] == 1:  # one copy, one reset check
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset2:  # This allele resets
+                            tempgenes[possiblealleles[1]] -= 1
+                            Track_EpigeneReset2[gen].append(1)
+                    else:  # 0 copies, pass
+                        pass
+
+                # Methylation, dependent case
+                else:
+                    # First allele
+                    if tempgenes[possiblealleles[0]] == 2:  # two copies, two reset checks
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset1:  # This allele resets
+                            tempgenes[possiblealleles[0]] -= 1
+                            Track_EpigeneReset1[gen].append(1)
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset1:  # This allele resets
+                            tempgenes[possiblealleles[0]] -= 1
+                            Track_EpigeneReset1[gen].append(1)
+                        # Second allele
+                        if tempgenes[possiblealleles[1]] != 0:
+                            # Should not have a copy of this allele
+                            print('Error in epigenetic locus.')
+                            sys.exit(-1)
+                    elif tempgenes[possiblealleles[0]] == 1:  # one copy, one reset check
+                        rand_reset = np.random.uniform()
+                        if rand_reset < Reset1:  # First allele resets
+                            tempgenes[possiblealleles[0]] -= 1
+                            Track_EpigeneReset1[gen].append(1)
+                            # Second allele
+                            if tempgenes[possiblealleles[1]] == 2:
+                                # Should not have a 2 copies of this second allele
+                                print('Error in epigenetic locus.')
+                                sys.exit(-1)
+                            elif tempgenes[possiblealleles[1]] == 1:
+                                # If first allele reset, then second one automatically resets
+                                tempgenes[possiblealleles[1]] = 0
+                                Track_EpigeneReset2[gen].append(1)
+                            else:  # Does not have a copy of this second allele, pass
+                                pass
+                        else:  # First allele did not reset
+                            # Check Second allele
+                            if tempgenes[possiblealleles[1]] == 2:
+                                # Should not have a 2 copies of this allele
+                                print('Error in epigenetic locus.')
+                                sys.exit(-1)
+                            elif tempgenes[possiblealleles[1]] == 1:
+                                # Possibility that methylation not inherited
+                                rand_reset = np.random.uniform()
+                                if rand_reset < Reset2:  # Second allele resets
+                                    tempgenes[possiblealleles[1]] = 0
+                                    Track_EpigeneReset2[gen].append(1)
+                            else:  # Does not have a copy of this second allele, pass
+                                pass
+                    else:  # 0 copies of first allele
+                        # Check second allele
+                        if tempgenes[possiblealleles[1]] == 2:
+                            # Assume that second allele not passed on either
+                            tempgenes[possiblealleles[1]] = 0
+                            Track_EpigeneReset2[gen].append(2)
+                        elif tempgenes[possiblealleles[1]] == 1:
+                            # Assume that second allele not passed on either
+                            tempgenes[possiblealleles[1]] = 0
+                            Track_EpigeneReset2[gen].append(1)
+                        else:  # 0 copies, pass
+                            pass
+
+        # mtDNA is turned on
+        if mtdna == 'Y':
+            # Force last locus to be mothergenes - possible alleles are from the last loop above
+            tempgenes[possiblealleles] = mothergenes[possiblealleles]
+
+        # Check for twin copy
+        if len(offspring[i][6].split('T')) > 1:
+            # Check if there are indeed more than 1 of these
+            if countTwins[offspring[i][6]] > 1:
+                twingenes = copy.deepcopy(tempgenes)
+
+    # Then flip the twin check back for next offsprings
+    else:  # This is a twin
+        tempgenes = copy.deepcopy(twingenes)
+        isTwin = True
+        # Check
+        if offspring[i][6] != offspring[i - 1][6]:
+            print('Twinning algorithm is not working. Email Erin.')
+            sys.exit(-1)
+
+    # Then check for mutations at each allele
+    noallelesmutated = []
+    if muterate != 0.0:
+        for iloci in range(loci):  # Loop through loci
+            mutationrandnos = np.random.uniform(size=2)  # Get a random number for checking
+            # Allele indices to sample from - index into tempgenes
+            possiblealleles = alleles[sum(noalleles[0:iloci]):sum(
+                noalleles[0:iloci + 1])]  # This accounts for variable alleles per loci.
+            # Get the current location of alleles - index into tempgenes
+            thisloci = possiblealleles[np.where(tempgenes[possiblealleles] != 0)[0]]
+            # Check case for homo
+            if len(thisloci) == 1:
+                # Copy the spot
+                thisloci = np.concatenate((thisloci, thisloci), axis=0)
+
+            # Loop through alleles
+            for iall in range(2):
+
+                # Check if random number is less than muterate
+                if mutationrandnos[iall] < muterate:
+
+                    # First remove this allele from tempgenes
+                    tempgenes[thisloci[iall]] -= 1
+
+                    # If random kth allele model
+                    if mutationans == 'random':
+                        # Randomly choose another allele, but not what allele it was
+                        movealleleTO = \
+                        np.random.choice(possiblealleles[np.where(thisloci[iall] != possiblealleles)[0]], 1).tolist()[0]
+                        # Index into tempgenes and add 1
+                        tempgenes[movealleleTO] += 1
+
+                        # Count a mutation
+                        noallelesmutated.append(1)
+
+                    # If just forward mutation
+                    elif mutationans == 'forward':
+                        # Move allele forward unless it is the last one
+                        if thisloci[iall] != possiblealleles[-1]:
+                            tempgenes[thisloci[iall] + 1] += 1
+
+                            # Count a mutation
+                            noallelesmutated.append(1)
+                        else:
+                            # The allele did not mutate because it was on the ends
+                            tempgenes[thisloci[iall]] += 1
+
+                    # If just backward mutation
+                    elif mutationans == 'backward':
+                        # Move allele backward unless it is the first one
+                        if thisloci[iall] != possiblealleles[0]:
+                            tempgenes[thisloci[iall] - 1] += 1
+
+                            # Count a mutation
+                            noallelesmutated.append(1)
+                        else:
+                            # The allele did not mutate because it was on the ends
+                            tempgenes[thisloci[iall]] += 1
+
+                    # If forward and backward mutation
+                    elif mutationans == 'forwardbackward':
+                        # Then random forward or backward step
+                        randstep = np.random.uniform()
+                        # To go left, but it can't be the first allele
+                        if randstep < 0.5 and thisloci[iall] != possiblealleles[0]:
+                            tempgenes[thisloci[iall] - 1] += 1
+                            # Count a mutation
+                            noallelesmutated.append(1)
+                        # To go right, but it can't be the last allele
+                        elif randstep >= 0.5 and thisloci[iall] != possiblealleles[-1]:
+                            tempgenes[thisloci[iall] + 1] += 1
+                            # Count a mutation
+                            noallelesmutated.append(1)
+                        else:
+                            # The allele did not mutate because it was on the ends
+                            tempgenes[thisloci[iall]] += 1
+
+                    # No other mutation models matched
+                    else:
+                        print('The mutation model does not exist.')
+                        sys.exit(-1)
+
+    # Add genes to offspring
+    offspring[i].append(tempgenes.tolist())
+
+    # Add Hindex to offspring list
+    M_hindex = float(hindex[int(offspring[i][0])])
+    F_hindex = float(hindex[int(offspring[i][1])])
+    off_hindex = M_hindex / 2. + F_hindex / 2.
+    offspring[i].append(off_hindex)
+
+    # Copy the saved twingenes for the next offspring
+    if isTwin:
+        twingenes = []  # Erase the copied twin genes
+        isTwin = False  # Turn off
+
+    # Now store the total number of alleles that mutated
+    return (offspring[i], sum(noallelesmutated))
 
 # --------------------------------------------------------------------------
 def PrepTextFile(textpath):
@@ -693,287 +978,9 @@ def InheritGenes(gen, AllelesMutated, offspringno, offspring, genes, loci, muter
                         countTwins)
                 args_list.append(args)
 
-            # Function to process each offspring
-            def process_offspring(args):
-                (i, gen, genes, offspring, loci, muterate, mtdna, mutationans, epigeneans, cdevolveans,
-                 noalleles, hindex, epiloci_index, epireset, Track_EpigeneReset1, Track_EpigeneReset2,
-                 countTwins) = args
-
-                isTwin = False  # For checking for twins
-                twingenes = []  # Initialize twin genes
-
-                # If twins genes were copied already from previous offspring, skip this section
-                if len(twingenes) == 0:
-                    # Temp storage for i's mother's and father's genes
-                    mothergenes = genes[int(offspring[i][0])]
-                    fathergenes = genes[int(offspring[i][1])]
-                    fathergenes = np.asarray(fathergenes, dtype=int)
-                    mothergenes = np.asarray(mothergenes, dtype=int)
-                    # Temp genes storage for offspring
-                    tempgenes = np.zeros(len(fathergenes), dtype=int)
-                    # Allele indices
-                    alleles = np.asarray(list(range(len(mothergenes))))
-
-                    # Loop through loci
-                    for iloci in range(loci):
-                        # Allele indices to sample from - index into tempgenes
-                        possiblealleles = alleles[sum(noalleles[0:iloci]):sum(noalleles[0:iloci + 1])]
-                        # If this is not the epiregion, assume diploid, randomly grab from parents alleles
-                        if len(np.where(np.asarray(epiloci_index) == iloci * 2)[0]) == 0:
-                            # Father and mother locations
-                            F2 = np.where(fathergenes[possiblealleles] == 2)[0]  # location of 2s
-                            F1 = np.where(fathergenes[possiblealleles] == 1)[0]
-                            M2 = np.where(mothergenes[possiblealleles] == 2)[0]
-                            M1 = np.where(mothergenes[possiblealleles] == 1)[0]
-                            Falls = np.concatenate((F2, F2, F1), axis=0)  # 2 copies of 2s
-                            Malls = np.concatenate((M2, M2, M1), axis=0)  # 2 copies of 2s
-                            # Sample allele from each parent
-                            FsampleAlleles = np.random.choice(Falls, 1).tolist()
-                            MsampleAlleles = np.random.choice(Malls, 1).tolist()
-                            # Fill in alleles corresponding to sampled spots
-                            tempgenes[possiblealleles[FsampleAlleles[0]]] += 1
-                            tempgenes[possiblealleles[MsampleAlleles[0]]] += 1
-
-                        # Epiregion, not necessarily diploid, different checks, and also check for resets
-                        else:
-                            # Get reset numbers for each allele
-                            Reset1 = float(epireset[offspring[i][0]][np.where(np.asarray(epiloci_index) == iloci * 2)[0][0]].split(';')[0])  # first allele reset
-                            Reset2 = float(epireset[offspring[i][0]][np.where(np.asarray(epiloci_index) == iloci * 2)[0][0]].split(';')[1])  # second allele reset
-
-                            # Randomly grab one of the alleles from each parent
-                            Fsample_allindex = np.random.choice(possiblealleles, 1).tolist()  # father's index location
-                            Msample_allindex = np.random.choice(possiblealleles, 1).tolist()  # mother's index location
-
-                            # Offspring inherits these epialleles or not from parents
-                            Fsample_allval = fathergenes[Fsample_allindex[0]]  # father's allele value
-                            Msample_allval = mothergenes[Msample_allindex[0]]  # mother's allele value
-                            # Check homo cases, offspring only gets one copy from each parent
-                            if Fsample_allval == 2:
-                                Fsample_allval = 1
-                            if Msample_allval == 2:
-                                Msample_allval = 1
-                            # Fill in offspring genes, indexing to allele location
-                            tempgenes[Fsample_allindex[0]] += Fsample_allval
-                            tempgenes[Msample_allindex[0]] += Msample_allval
-
-                            # Check for resets
-                            # Independent alleles
-                            if epigeneans.split('_')[4] == 'Ind':
-                                # First allele
-                                if tempgenes[possiblealleles[0]] == 2:  # two copies, two reset checks
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset1:  # This allele resets
-                                        tempgenes[possiblealleles[0]] -= 1
-                                        Track_EpigeneReset1[gen].append(1)
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset1:  # This allele resets
-                                        tempgenes[possiblealleles[0]] -= 1
-                                        Track_EpigeneReset1[gen].append(1)
-                                elif tempgenes[possiblealleles[0]] == 1:  # one copy, one reset check
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset1:  # This allele resets
-                                        tempgenes[possiblealleles[0]] -= 1
-                                        Track_EpigeneReset1[gen].append(1)
-                                else:  # 0 copies, pass
-                                    pass
-                                # Second allele
-                                if tempgenes[possiblealleles[1]] == 2:  # two copies, two reset checks
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset2:  # This allele resets
-                                        tempgenes[possiblealleles[1]] -= 1
-                                        Track_EpigeneReset2[gen].append(1)
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset2:  # This allele resets
-                                        tempgenes[possiblealleles[1]] -= 1
-                                        Track_EpigeneReset2[gen].append(1)
-                                elif tempgenes[possiblealleles[1]] == 1:  # one copy, one reset check
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset2:  # This allele resets
-                                        tempgenes[possiblealleles[1]] -= 1
-                                        Track_EpigeneReset2[gen].append(1)
-                                else:  # 0 copies, pass
-                                    pass
-
-                            # Methylation, dependent case
-                            else:
-                                # First allele
-                                if tempgenes[possiblealleles[0]] == 2:  # two copies, two reset checks
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset1:  # This allele resets
-                                        tempgenes[possiblealleles[0]] -= 1
-                                        Track_EpigeneReset1[gen].append(1)
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset1:  # This allele resets
-                                        tempgenes[possiblealleles[0]] -= 1
-                                        Track_EpigeneReset1[gen].append(1)
-                                    # Second allele
-                                    if tempgenes[possiblealleles[1]] != 0:
-                                        # Should not have a copy of this allele
-                                        print('Error in epigenetic locus.')
-                                        sys.exit(-1)
-                                elif tempgenes[possiblealleles[0]] == 1:  # one copy, one reset check
-                                    rand_reset = np.random.uniform()
-                                    if rand_reset < Reset1:  # First allele resets
-                                        tempgenes[possiblealleles[0]] -= 1
-                                        Track_EpigeneReset1[gen].append(1)
-                                        # Second allele
-                                        if tempgenes[possiblealleles[1]] == 2:
-                                            # Should not have a 2 copies of this second allele
-                                            print('Error in epigenetic locus.')
-                                            sys.exit(-1)
-                                        elif tempgenes[possiblealleles[1]] == 1:
-                                            # If first allele reset, then second one automatically resets
-                                            tempgenes[possiblealleles[1]] = 0
-                                            Track_EpigeneReset2[gen].append(1)
-                                        else:  # Does not have a copy of this second allele, pass
-                                            pass
-                                    else:  # First allele did not reset
-                                        # Check Second allele
-                                        if tempgenes[possiblealleles[1]] == 2:
-                                            # Should not have a 2 copies of this allele
-                                            print('Error in epigenetic locus.')
-                                            sys.exit(-1)
-                                        elif tempgenes[possiblealleles[1]] == 1:
-                                            # Possibility that methylation not inherited
-                                            rand_reset = np.random.uniform()
-                                            if rand_reset < Reset2:  # Second allele resets
-                                                tempgenes[possiblealleles[1]] = 0
-                                                Track_EpigeneReset2[gen].append(1)
-                                        else:  # Does not have a copy of this second allele, pass
-                                            pass
-                                else:  # 0 copies of first allele
-                                    # Check second allele
-                                    if tempgenes[possiblealleles[1]] == 2:
-                                        # Assume that second allele not passed on either
-                                        tempgenes[possiblealleles[1]] = 0
-                                        Track_EpigeneReset2[gen].append(2)
-                                    elif tempgenes[possiblealleles[1]] == 1:
-                                        # Assume that second allele not passed on either
-                                        tempgenes[possiblealleles[1]] = 0
-                                        Track_EpigeneReset2[gen].append(1)
-                                    else:  # 0 copies, pass
-                                        pass
-
-                    # mtDNA is turned on
-                    if mtdna == 'Y':
-                        # Force last locus to be mothergenes - possible alleles are from the last loop above
-                        tempgenes[possiblealleles] = mothergenes[possiblealleles]
-
-                    # Check for twin copy
-                    if len(offspring[i][6].split('T')) > 1:
-                        # Check if there are indeed more than 1 of these
-                        if countTwins[offspring[i][6]] > 1:
-                            twingenes = copy.deepcopy(tempgenes)
-
-                # Then flip the twin check back for next offsprings
-                else:  # This is a twin
-                    tempgenes = copy.deepcopy(twingenes)
-                    isTwin = True
-                    # Check
-                    if offspring[i][6] != offspring[i - 1][6]:
-                        print('Twinning algorithm is not working. Email Erin.')
-                        sys.exit(-1)
-
-                # Then check for mutations at each allele
-                noallelesmutated = []
-                if muterate != 0.0:
-                    for iloci in range(loci):  # Loop through loci
-                        mutationrandnos = np.random.uniform(size=2)  # Get a random number for checking
-                        # Allele indices to sample from - index into tempgenes
-                        possiblealleles = alleles[sum(noalleles[0:iloci]):sum(noalleles[0:iloci + 1])]  # This accounts for variable alleles per loci.
-                        # Get the current location of alleles - index into tempgenes
-                        thisloci = possiblealleles[np.where(tempgenes[possiblealleles] != 0)[0]]
-                        # Check case for homo
-                        if len(thisloci) == 1:
-                            # Copy the spot
-                            thisloci = np.concatenate((thisloci, thisloci), axis=0)
-
-                        # Loop through alleles
-                        for iall in range(2):
-
-                            # Check if random number is less than muterate
-                            if mutationrandnos[iall] < muterate:
-
-                                # First remove this allele from tempgenes
-                                tempgenes[thisloci[iall]] -= 1
-
-                                # If random kth allele model
-                                if mutationans == 'random':
-                                    # Randomly choose another allele, but not what allele it was
-                                    movealleleTO = np.random.choice(possiblealleles[np.where(thisloci[iall] != possiblealleles)[0]], 1).tolist()[0]
-                                    # Index into tempgenes and add 1
-                                    tempgenes[movealleleTO] += 1
-
-                                    # Count a mutation
-                                    noallelesmutated.append(1)
-
-                                # If just forward mutation
-                                elif mutationans == 'forward':
-                                    # Move allele forward unless it is the last one
-                                    if thisloci[iall] != possiblealleles[-1]:
-                                        tempgenes[thisloci[iall] + 1] += 1
-
-                                        # Count a mutation
-                                        noallelesmutated.append(1)
-                                    else:
-                                        # The allele did not mutate because it was on the ends
-                                        tempgenes[thisloci[iall]] += 1
-
-                                # If just backward mutation
-                                elif mutationans == 'backward':
-                                    # Move allele backward unless it is the first one
-                                    if thisloci[iall] != possiblealleles[0]:
-                                        tempgenes[thisloci[iall] - 1] += 1
-
-                                        # Count a mutation
-                                        noallelesmutated.append(1)
-                                    else:
-                                        # The allele did not mutate because it was on the ends
-                                        tempgenes[thisloci[iall]] += 1
-
-                                # If forward and backward mutation
-                                elif mutationans == 'forwardbackward':
-                                    # Then random forward or backward step
-                                    randstep = np.random.uniform()
-                                    # To go left, but it can't be the first allele
-                                    if randstep < 0.5 and thisloci[iall] != possiblealleles[0]:
-                                        tempgenes[thisloci[iall] - 1] += 1
-                                        # Count a mutation
-                                        noallelesmutated.append(1)
-                                    # To go right, but it can't be the last allele
-                                    elif randstep >= 0.5 and thisloci[iall] != possiblealleles[-1]:
-                                        tempgenes[thisloci[iall] + 1] += 1
-                                        # Count a mutation
-                                        noallelesmutated.append(1)
-                                    else:
-                                        # The allele did not mutate because it was on the ends
-                                        tempgenes[thisloci[iall]] += 1
-
-                                # No other mutation models matched
-                                else:
-                                    print('The mutation model does not exist.')
-                                    sys.exit(-1)
-
-                # Add genes to offspring
-                offspring[i].append(tempgenes.tolist())
-
-                # Add Hindex to offspring list
-                M_hindex = float(hindex[int(offspring[i][0])])
-                F_hindex = float(hindex[int(offspring[i][1])])
-                off_hindex = M_hindex / 2. + F_hindex / 2.
-                offspring[i].append(off_hindex)
-
-                # Copy the saved twingenes for the next offspring
-                if isTwin:
-                    twingenes = []  # Erase the copied twin genes
-                    isTwin = False  # Turn off
-
-                # Now store the total number of alleles that mutated
-                return (offspring[i], sum(noallelesmutated))
-
             # Use ProcessPoolExecutor to process offspring in parallel
             with ProcessPoolExecutor() as executor:
-                results = executor.map(process_offspring, args_list, chunksize=1000000) #set to chunk size based on pop of 1000SNPs and 700 ninds
+                results = executor.map(process_offspring, args_list, chunksize=int(len(args_list) / cpu_count())) #set to chunk size based on pop of 1000SNPs and 700 ninds
 
             # Collect results
             offspring_updated = []
